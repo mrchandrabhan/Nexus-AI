@@ -97,11 +97,52 @@ Out of scope for the first MVP: autonomous access to production systems, unrestr
 
 See [docs/roadmap.md](docs/roadmap.md). Work is tracked in GitHub Issues. The roadmap is incremental: a working, testable vertical slice comes before advanced agents or infrastructure.
 
-## Local development
+## Day 1 scaffold — run locally
 
-The runnable application scaffold is being built. Setup instructions will be added once the first backend and frontend skeletons are committed.
+### Prerequisites
+- Docker Desktop with the Linux container engine running.
+- Git.
 
-Planned configuration is documented in [`.env.example`](.env.example). Never place real provider keys in source control.
+### Start the complete stack
+
+From the repository root:
+
+```powershell
+docker compose up --build
+```
+
+Open:
+- Web application: http://localhost:3000
+- API documentation: http://localhost:8000/docs
+- API liveness: http://localhost:8000/health
+- API/database readiness: http://localhost:8000/ready
+
+PostgreSQL is exposed on host port `5433`. The `pgvector` extension is enabled by the initialization script. The current UI is a service-status and workspace shell; document upload, RAG, chat, and tools are not implemented yet.
+
+### Run backend tests
+
+```powershell
+docker compose exec backend pytest -q
+```
+
+### Stop the stack
+
+```powershell
+docker compose down
+```
+
+To remove the local database volume as well (destructive): `docker compose down -v`.
+
+### Useful commands
+
+```powershell
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f db
+```
+
+The Compose file uses disposable development credentials for a local portfolio environment. Do not reuse them outside local development. Never commit real secrets.
 
 ## Portfolio context
 
