@@ -6,11 +6,15 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import engine
+from app.routers.documents import router as documents_router
 
 app = FastAPI(
     title="Nexus AI API",
-    description="API foundation for the Nexus AI enterprise intelligence workspace.",
-    version="0.1.0",
+    description=(
+        "Enterprise knowledge workspace API. The current slice supports document "
+        "ingestion and extraction; semantic retrieval and answer generation are next."
+    ),
+    version="0.2.0",
 )
 
 origins = [
@@ -22,14 +26,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+app.include_router(documents_router)
 
 
 @app.get("/", tags=["system"])
 def root() -> dict[str, str]:
-    return {"service": "nexus-ai-api", "version": "0.1.0", "docs": "/docs"}
+    return {"service": "nexus-ai-api", "version": "0.2.0", "docs": "/docs"}
 
 
 @app.get("/health", tags=["system"])

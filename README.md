@@ -1,88 +1,98 @@
 # Nexus AI — Enterprise Intelligence & Automation Platform
 
-> **Status: Day 1 scaffold committed; GitHub CI passing; local Docker verification pending.**
+> **Status: Document-ingestion API implemented and committed; local rebuild and end-to-end verification pending. Semantic retrieval and answer generation are the next milestones.**
 
 [![CI](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml)
 
-Nexus AI is a portfolio project exploring how an enterprise AI assistant can move beyond chat and safely help people work with organizational knowledge and business systems. The intended MVP combines retrieval-augmented generation (RAG), citations, controlled tool calling, and human-approved actions.
+Nexus AI is a portfolio project exploring how an enterprise AI assistant can move beyond chat and safely help people work with organizational knowledge and business systems. The first working slice accepts knowledge documents, extracts text, creates traceable chunks, and persists document metadata and content in PostgreSQL. Embeddings, semantic retrieval, and cited answer generation are being built next.
 
 **Repository:** https://github.com/mrchandrabhan/Nexus-AI  
 **Portfolio:** https://mrchandrabhan.github.io/
 
-## Project goals
-
-- Answer questions over uploaded knowledge-base documents with source references.
-- Integrate selected read-only business tools (for example, querying a demo support or operations dataset).
-- Keep user identity, permissions, and conversation history explicit.
-- Require confirmation before state-changing actions.
-- Make AI behavior measurable through an evaluation set and request-level telemetry.
-
-## Current status
-
-This repository currently contains the initial project definition, architecture, and roadmap. The application features below are **planned**, not yet represented as completed functionality.
+## Current implementation
 
 | Capability | Status |
 |---|---|
-| Repository baseline and architecture | Published |
-| Next.js application shell | Planned |
-| FastAPI service and health endpoint | Planned |
-| PostgreSQL schema and migrations | Planned |
-| Document ingestion and pgvector retrieval | Planned |
-| Grounded answers with citations | Planned |
-| Tool calling against demo APIs | Planned |
+| Project definition, architecture, and roadmap | Published |
+| Next.js workspace shell | Implemented |
+| FastAPI service, health, and readiness checks | Implemented |
+| PostgreSQL document schema and Alembic migration | Implemented |
+| PDF, Markdown, and UTF-8 text upload | Implemented |
+| PDF text extraction with page metadata | Implemented |
+| Overlapping text chunks with source offsets | Implemented |
+| Document listing, detail, duplicate detection, and deletion | Implemented |
+| Embedding generation and pgvector similarity search | Next milestone |
+| Grounded LLM answers with citations | Planned |
 | Authentication, tenant isolation, and RBAC | Planned |
-| Human approval for write actions | Planned |
-| Evaluation, tests, and observability | Planned |
-| Containerized deployment and CI | Planned |
+| Approved tools and audit workflow | Planned |
 
-## Proposed architecture
+The current upload API is a single-workspace development feature. Authentication and tenant-level authorization are not implemented yet; do not expose this development service to untrusted networks.
 
-```mermaid
-flowchart TD
-  U[User] --> FE[Next.js web application]
-  FE --> API[FastAPI application]
-  API --> AUTH[Authentication and authorization]
-  API --> ORCH[AI orchestration layer]
-  ORCH --> RET[Retrieval service]
-  RET --> VDB[(PostgreSQL + pgvector)]
-  ORCH --> LLM[LLM provider adapter]
-  ORCH --> TOOLS[Allowlisted business tools]
-  TOOLS --> DEMO[Demo business APIs and data]
-  API --> DB[(PostgreSQL: users, sessions, audit)]
-  ORCH --> APPROVAL[Human approval gate]
-  APPROVAL --> WRITE[Approved action handler]
-  API --> OBS[Logs, metrics, traces, evaluation]
-```
+## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for design decisions and trust boundaries.
+The current document flow is: user → Next.js workspace → FastAPI → document validation and extraction → overlapping chunks with page and offset metadata → PostgreSQL. The next milestone adds embeddings in pgvector, semantic retrieval, and source-cited model responses.
 
-## Planned technology
+See docs/architecture.md for trust boundaries and design decisions.
 
-| Area | Initial choice | Purpose |
+## Technology
+
+| Area | Technology | Purpose |
 |---|---|---|
-| Web | Next.js, TypeScript | Chat and administration UI |
+| Web | Next.js, TypeScript | Workspace UI |
 | API | Python, FastAPI | Typed application API |
-| Data | PostgreSQL | Users, conversations, metadata |
-| Retrieval | pgvector | Embedding storage and similarity search |
-| AI orchestration | Provider adapter; LangGraph if workflow complexity warrants it | Tool routing and controlled multi-step flows |
-| Tests | pytest and frontend tests | Unit and integration coverage |
+| Data | PostgreSQL, SQLAlchemy | Document metadata and extracted chunks |
+| Migrations | Alembic | Versioned database schema |
+| File parsing | pypdf | Text extraction from PDFs |
+| Retrieval foundation | pgvector extension | Vector storage in the next milestone |
+| Tests | pytest, FastAPI TestClient | API and ingestion coverage |
 | Local environment | Docker Compose | Reproducible development |
-| Delivery | GitHub Actions | Lint, test, and build automation |
-| Observability | OpenTelemetry-compatible instrumentation | Request traces and latency/error visibility |
+| Delivery | GitHub Actions | Test and build automation |
 
-Provider credentials are supplied locally through environment variables. No secrets should be committed.
+## Document ingestion API
 
-## MVP scope
+The API accepts PDF, Markdown, and UTF-8 TXT files up to 10 MiB. It stores extracted text chunks and document metadata, not the original binary file. PDF chunks retain page numbers; all chunks retain character offsets within their source page.
 
-1. Create an authenticated chat workspace.
-2. Upload PDF and Markdown documents.
-3. Parse, chunk, embed, and index documents.
-4. Retrieve relevant passages and show citations in responses.
-5. Add one read-only tool over clearly defined demo data.
-6. Add one proposed state-changing workflow that cannot run without explicit approval.
-7. Record test results for retrieval quality, citation validity, latency, and failure paths.
+Open http://localhost:8000/docs and use these endpoints:
 
-Out of scope for the first MVP: autonomous access to production systems, unrestricted SQL execution, multi-tenant enterprise SSO, and unsupervised write actions.
+- POST /api/v1/documents — upload a file using multipart form data.
+- GET /api/v1/documents — list uploaded document metadata.
+- GET /api/v1/documents/{document_id} — inspect a document and its extracted chunks.
+- DELETE /api/v1/documents/{document_id} — delete a document and its chunks.
+
+Exact duplicate files are rejected by SHA-256 digest. Unsupported file types, empty files, invalid PDFs, encrypted PDFs, and files above the upload limit receive explicit errors. Scanned PDFs are not OCR-processed.
+
+## Run locally
+
+Prerequisites: Docker Desktop with the Linux container engine running, and Git.
+
+From the repository root, run:
+
+    docker compose up --build -d
+    docker compose ps
+
+Open:
+- Web application: http://localhost:3000
+- API documentation: http://localhost:8000/docs
+- API liveness: http://localhost:8000/health
+- API/database readiness: http://localhost:8000/ready
+
+PostgreSQL is exposed on host port 5433. The pgvector extension is enabled for the next retrieval milestone. Alembic applies the document schema automatically when the backend container starts.
+
+Run backend tests:
+
+    docker compose exec backend pytest -q
+
+Follow backend logs:
+
+    docker compose logs -f backend
+
+Stop the stack:
+
+    docker compose down
+
+To remove the local database volume as well (destructive), use: docker compose down -v.
+
+The Compose file uses disposable development credentials for a local portfolio environment. Do not reuse them outside local development. Never commit real secrets.
 
 ## Security and reliability principles
 
@@ -91,64 +101,17 @@ Out of scope for the first MVP: autonomous access to production systems, unrestr
 - Use allowlisted tools with validated schemas and least-privilege credentials.
 - Keep read operations separate from write operations.
 - Require an explicit human approval step before write actions.
-- Avoid logging secrets or unnecessary sensitive document contents.
-- Add timeouts, request limits, input validation, and clear failure responses.
+- Avoid logging secrets or unnecessary document contents.
+- Add timeouts, request limits, and clear failure responses.
 - Evaluate groundedness and citation correctness; do not assume fluent output is correct.
 
 ## Development roadmap
 
-See [docs/roadmap.md](docs/roadmap.md). Work is tracked in GitHub Issues. The roadmap is incremental: a working, testable vertical slice comes before advanced agents or infrastructure.
-
-## Day 1 scaffold — run locally
-
-### Prerequisites
-- Docker Desktop with the Linux container engine running.
-- Git.
-
-### Start the complete stack
-
-From the repository root:
-
-```powershell
-docker compose up --build
-```
-
-Open:
-- Web application: http://localhost:3000
-- API documentation: http://localhost:8000/docs
-- API liveness: http://localhost:8000/health
-- API/database readiness: http://localhost:8000/ready
-
-PostgreSQL is exposed on host port `5433`. The `pgvector` extension is enabled by the initialization script. The current UI is a service-status and workspace shell; document upload, RAG, chat, and tools are not implemented yet.
-
-### Run backend tests
-
-```powershell
-docker compose exec backend pytest -q
-```
-
-### Stop the stack
-
-```powershell
-docker compose down
-```
-
-To remove the local database volume as well (destructive): `docker compose down -v`.
-
-### Useful commands
-
-```powershell
-docker compose ps
-docker compose logs -f backend
-docker compose logs -f frontend
-docker compose logs -f db
-```
-
-The Compose file uses disposable development credentials for a local portfolio environment. Do not reuse them outside local development. Never commit real secrets.
+See docs/roadmap.md. Planned capabilities are not described as complete until implemented and tested.
 
 ## Portfolio context
 
-This project complements [Agentic RAG Document Q&A](https://github.com/mrchandrabhan/agentic-rag-docqa). The earlier project focuses on document question answering and retrieval evaluation; Nexus AI is intended to explore enterprise application integration, authorization boundaries, and human-approved workflows.
+This project complements Agentic RAG Document Q&A. The earlier project focuses on document question answering and retrieval evaluation; Nexus AI is intended to explore enterprise ingestion, authorization boundaries, enterprise application integrations, and human-approved workflows.
 
 ## License
 

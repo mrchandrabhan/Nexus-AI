@@ -1,16 +1,28 @@
 # Nexus AI — Architecture Notes
 
-> Design baseline. Components described here are planned until implemented and tested.
+## Current implementation boundary
 
-## System context
+The application currently implements a single-workspace document-ingestion API. It accepts PDF, Markdown, and UTF-8 text files, extracts text, creates overlapping chunks with source offsets, and persists metadata and chunks in PostgreSQL. Alembic owns the versioned schema. Authentication, tenant isolation, embeddings, semantic retrieval, and LLM responses are not implemented yet.
 
-Nexus AI is a web application for asking questions over a controlled knowledge base and invoking explicitly allowlisted business tools. It is not intended to be an unrestricted autonomous operator.
+The current API is intended for local development and portfolio demonstration. It must not be exposed as a production multi-tenant service before identity, authorization, request controls, and isolation are added.
 
 ## Initial deployment shape
 
-Start as a **modular monolith**: one FastAPI deployment with distinct modules for identity, conversations, document ingestion, retrieval, orchestration, tools, and audit events. This keeps the MVP debuggable while preserving boundaries that can later be extracted if measured scaling needs justify it.
+Start as a modular monolith: one FastAPI deployment with distinct modules for identity, conversations, document ingestion, retrieval, orchestration, tools, and audit events. This keeps the MVP debuggable while preserving boundaries that can later be extracted if measured scaling needs justify it.
 
-## Request flow
+## Implemented document flow
+
+1. The browser or API client submits a PDF, Markdown, or UTF-8 TXT file.
+2. The API validates extension, byte size, filename, and document readability.
+3. PDF text is extracted page by page; text and Markdown are treated as page one.
+4. Text is split into overlapping chunks, retaining page numbers and character offsets.
+5. A SHA-256 digest prevents exact duplicate uploads.
+6. Document metadata and extracted chunks are committed in one database transaction.
+7. A caller can list documents, inspect extracted chunks, or delete a document and its chunks.
+
+The original binary upload is not retained. Scanned PDFs are rejected because OCR is not part of the current implementation.
+
+## Planned request flow
 
 1. The browser sends an authenticated request to the API.
 2. The API checks the user's identity and access to the requested workspace.
@@ -23,21 +35,25 @@ Start as a **modular monolith**: one FastAPI deployment with distinct modules fo
 
 ## Data boundaries
 
-- Documents are scoped to a workspace or tenant.
+- Documents are intended to be scoped to a workspace or tenant; tenant isolation is not implemented in this first slice.
+- Retrieved content must be treated as untrusted input.
 - Retrieval must filter by the caller's authorized scope before context is sent to a model.
-- Tool endpoints re-check authorization independently of the model's tool choice.
-- SQL access is exposed through narrowly defined query functions, not arbitrary model-generated SQL.
-- Credentials are held in environment/secret management, never in prompts or repository files.
+- Tool endpoints must re-check authorization independently of the model's tool choice.
+- SQL access must be exposed through narrowly defined query functions, not arbitrary model-generated SQL.
+- Credentials belong in environment/secret management, never in prompts or repository files.
 
-## Key entities (initial proposal)
+## Current data model
+
+- Document
+- DocumentChunk
+
+## Planned data model
 
 - User
 - Workspace
 - WorkspaceMembership
 - Conversation
 - Message
-- Document
-- DocumentChunk
 - ToolExecution
 - ApprovalRequest
 - AuditEvent
@@ -46,12 +62,11 @@ Start as a **modular monolith**: one FastAPI deployment with distinct modules fo
 
 | Attribute | Initial design response |
 |---|---|
-| Security | Server-side authorization, scoped retrieval, allowlisted tools |
-| Safety | Read/write separation and human approval for mutations |
-| Traceability | Request IDs, tool-call records, evaluation cases |
-| Maintainability | Modular FastAPI application and typed schemas |
-| Reliability | Timeouts, retries only for safe/idempotent operations, graceful provider errors |
-| Evaluation | Labeled question set with retrieval and citation checks |
+| Security | Upload size/type validation; authorization and tenant isolation remain future work |
+| Traceability | Document SHA-256, chunk index, page number, and source offsets |
+| Maintainability | Modular FastAPI application and typed API schemas |
+| Reliability | Database transactions, unique constraints, and explicit parsing errors |
+| Evaluation | Unit and integration tests; retrieval evaluation is a future milestone |
 
 ## Decisions to validate during implementation
 
