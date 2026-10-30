@@ -1,77 +1,72 @@
 # Nexus AI — Architecture Notes
 
-## Current implementation boundary
+## Product boundary
 
-The application currently implements a single-workspace document-ingestion API. It accepts PDF, Markdown, and UTF-8 text files, extracts text, creates overlapping chunks with source offsets, and persists metadata and chunks in PostgreSQL. Alembic owns the versioned schema. Authentication, tenant isolation, embeddings, semantic retrieval, and LLM responses are not implemented yet.
+Nexus AI is the enterprise workspace and governance/control plane. The existing `agentic-rag-docqa` repository is the knowledge engine. Nexus calls that engine over HTTP; document parsing, chunking, embeddings, vector search, LangGraph retrieval, answer generation, and citation validation remain implemented in one place.
 
-The current API is intended for local development and portfolio demonstration. It must not be exposed as a production multi-tenant service before identity, authorization, request controls, and isolation are added.
+## Current service boundaries
 
-## Initial deployment shape
+### Nexus workspace (Next.js)
 
-Start as a modular monolith: one FastAPI deployment with distinct modules for identity, conversations, document ingestion, retrieval, orchestration, tools, and audit events. This keeps the MVP debuggable while preserving boundaries that can later be extracted if measured scaling needs justify it.
+- Provides the enterprise workspace shell.
+- Uploads supported documents through the Nexus API.
+- Submits natural-language questions.
+- Displays grounded answers, page-level citations, latency, and agent trace.
+- Does not directly call the RAG service from the browser.
 
-## Implemented document flow
+### Nexus API (FastAPI)
 
-1. The browser or API client submits a PDF, Markdown, or UTF-8 TXT file.
-2. The API validates extension, byte size, filename, and document readability.
-3. PDF text is extracted page by page; text and Markdown are treated as page one.
-4. Text is split into overlapping chunks, retaining page numbers and character offsets.
-5. A SHA-256 digest prevents exact duplicate uploads.
-6. Document metadata and extracted chunks are committed in one database transaction.
-7. A caller can list documents, inspect extracted chunks, or delete a document and its chunks.
+- Exposes assistant status, document-upload proxy, and question/answer endpoints.
+- Calls the RAG service server-side through a typed HTTP client.
+- Applies timeout and upstream error handling.
+- Is the intended enforcement point for future identity, workspace authorization, tool policy, approvals, and audit records.
 
-The original binary upload is not retained. Scanned PDFs are rejected because OCR is not part of the current implementation.
+### Existing Agentic RAG service
 
-## Planned request flow
+- Wraps the existing `DocQA` pipeline in `api.py`.
+- Loads the example corpus when the process-local engine is initialized.
+- Accepts document uploads and indexes them through the existing page-aware loaders, chunker, embedding model, and FAISS store.
+- Uses the existing LangGraph retrieve-grade-rewrite-generate flow and citation validation.
+- Supports the existing MiniLM semantic embedder and deterministic hash embedder for local/offline development.
+- Keeps its vector index in process memory; sample documents are reloaded and additional uploads are cleared after a restart.
 
-1. The browser sends an authenticated request to the API.
-2. The API checks the user's identity and access to the requested workspace.
-3. The orchestration layer selects a retrieval or tool workflow.
-4. Retrieval returns passages with document identifiers and page/section metadata.
-5. The model receives only the relevant context and constrained tool definitions.
-6. The response is validated and returned with source references.
-7. Any state-changing request is converted into a proposal and waits for explicit approval.
-8. An audit record captures the actor, requested action, approval, and outcome without storing secrets.
+## Request flows
 
-## Data boundaries
+### Ask a question
 
-- Documents are intended to be scoped to a workspace or tenant; tenant isolation is not implemented in this first slice.
-- Retrieved content must be treated as untrusted input.
-- Retrieval must filter by the caller's authorized scope before context is sent to a model.
-- Tool endpoints must re-check authorization independently of the model's tool choice.
-- SQL access must be exposed through narrowly defined query functions, not arbitrary model-generated SQL.
-- Credentials belong in environment/secret management, never in prompts or repository files.
+1. The browser submits a question to `POST /api/v1/assistant/ask` on Nexus.
+2. Nexus validates the request and calls the RAG API server-side.
+3. The RAG engine retrieves and grades document chunks, optionally rewrites a weak query, and generates an answer from relevant context.
+4. The RAG engine validates citation indices and returns source/page metadata and the agent trace.
+5. Nexus returns the answer and citations to the browser for display.
 
-## Current data model
+### Upload a document
 
-- Document
-- DocumentChunk
+1. The browser sends a multipart file to Nexus.
+2. Nexus enforces its 10 MiB request limit.
+3. Nexus forwards the file to the RAG service.
+4. The RAG service validates type and size, writes to a temporary directory, and indexes the content through the existing RAG pipeline.
+5. The response includes file/page/chunk counts.
 
-## Planned data model
+## Current limitations and trust boundaries
 
-- User
-- Workspace
-- WorkspaceMembership
-- Conversation
-- Message
-- ToolExecution
-- ApprovalRequest
-- AuditEvent
+- No user authentication, workspace identity, or tenant isolation exists yet.
+- The local RAG API currently has no service token; keep it on a trusted development machine.
+- The vector index and extra document uploads are process-local, not durable.
+- Nexus currently proxies question and upload requests; it does not claim that documents are access-controlled.
+- All retrieved documents must be treated as untrusted input.
+- The current UI must not be exposed as an enterprise multi-tenant service.
 
-## Quality attributes
+## Next control-plane architecture
 
-| Attribute | Initial design response |
-|---|---|
-| Security | Upload size/type validation; authorization and tenant isolation remain future work |
-| Traceability | Document SHA-256, chunk index, page number, and source offsets |
-| Maintainability | Modular FastAPI application and typed API schemas |
-| Reliability | Database transactions, unique constraints, and explicit parsing errors |
-| Evaluation | Unit and integration tests; retrieval evaluation is a future milestone |
+1. Add identity and workspace membership.
+2. Associate each document with an authorized workspace and extend the RAG adapter to filter retrieval by an authorized corpus/document scope.
+3. Add a tool registry with strict input/output schemas.
+4. Enforce tool authorization in Nexus server-side code, independent of model prompts.
+5. Separate read-only tools from state-changing tools.
+6. Store proposed actions as approval requests and require explicit, authorized human approval.
+7. Record actor, requested tool, validated arguments, decision, approver, execution result, and timestamps in an append-only audit trail.
 
-## Decisions to validate during implementation
+## Non-goals
 
-- Choose a specific embedding model after measuring local/cloud cost and retrieval quality.
-- Choose an LLM provider adapter based on availability, pricing, and structured-tool support.
-- Introduce LangGraph only if the workflow requires durable multi-step state; avoid framework complexity for simple request/response paths.
-- Use PostgreSQL transactions for conversation and approval state.
-- Add caching only after observing repeated work or latency bottlenecks.
+Nexus will not rebuild the RAG embedding/retrieval engine. It will also not provide unrestricted SQL access, autonomous production write access, or prompt-only permission controls.

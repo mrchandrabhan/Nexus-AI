@@ -1,14 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 
 type ServiceState = "checking" | "online" | "offline";
+type Citation = {
+  n: number;
+  source: string;
+  page: number;
+  score: number;
+  text: string;
+};
+type AssistantAnswer = {
+  question: string;
+  answer: string;
+  citations: Citation[];
+  trace: string[];
+  latency_ms: number;
+  engine: string;
+};
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function Home() {
   const [apiState, setApiState] = useState<ServiceState>("checking");
   const [databaseState, setDatabaseState] = useState("Checking");
+  const [ragState, setRagState] = useState<ServiceState>("checking");
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<AssistantAnswer | null>(null);
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
 
   async function checkBackend() {
     setApiState("checking");
@@ -22,6 +46,62 @@ export default function Home() {
     } catch {
       setApiState("offline");
       setDatabaseState("Unavailable");
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/assistant/status`, { cache: "no-store" });
+      if (!response.ok) throw new Error("RAG service unavailable");
+      setRagState("online");
+    } catch {
+      setRagState("offline");
+    }
+  }
+
+  async function submitQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!question.trim()) return;
+    setAskLoading(true);
+    setAskError("");
+    setAnswer(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/assistant/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question.trim() })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail ?? "The assistant could not answer.");
+      setAnswer(body as AssistantAnswer);
+    } catch (error) {
+      setAskError(error instanceof Error ? error.message : "Unexpected request error.");
+    } finally {
+      setAskLoading(false);
+    }
+  }
+
+  async function uploadDocument(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedFile) return;
+    setUploadLoading(true);
+    setUploadMessage("");
+    const form = new FormData();
+    form.append("file", selectedFile);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/assistant/documents`, {
+        method: "POST",
+        body: form
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail ?? "Upload failed.");
+      setUploadMessage(`Indexed ${body.filename}: ${body.chunks} chunk(s) across ${body.pages} page(s).`);
+      setSelectedFile(null);
+      const input = document.getElementById("document-upload") as HTMLInputElement | null;
+      if (input) input.value = "";
+      setRagState("online");
+    } catch (error) {
+      setUploadMessage(error instanceof Error ? error.message : "Unexpected upload error.");
+    } finally {
+      setUploadLoading(false);
     }
   }
 
@@ -40,7 +120,7 @@ export default function Home() {
         <a className="nav-item active" href="#overview"><span>⌂</span> Overview</a>
         <a className="nav-item" href="#knowledge"><span>▤</span> Knowledge base</a>
         <a className="nav-item" href="#assistant"><span>✳</span> AI assistant</a>
-        <a className="nav-item" href="#integrations"><span>⌘</span> Integrations</a>
+        <a className="nav-item" href="#integrations"><span>⌘</span> Governance</a>
         <div className="sidebar-bottom">
           <span className="avatar">CV</span>
           <span><strong>Developer workspace</strong><small>Local environment</small></span>
@@ -54,49 +134,110 @@ export default function Home() {
         </header>
 
         <div className="content">
-          <div className="eyebrow">ENTERPRISE INTELLIGENCE WORKSPACE</div>
-          <h1>Make knowledge<br /><em>work for you.</em></h1>
-          <p className="intro">A grounded AI workspace for searching organizational knowledge and connecting approved business tools. The application foundation is online; core AI workflows are being built next.</p>
+          <div className="eyebrow">ENTERPRISE AI INTELLIGENCE & GOVERNANCE</div>
+          <h1>Knowledge into<br /><em>action, safely.</em></h1>
+          <p className="intro">Nexus combines the existing Agentic RAG knowledge engine with an enterprise workspace and a controlled integration layer. Answers include source citations; sensitive actions will require explicit authorization and approval.</p>
 
           <div className="status-row">
             <div className="status-card">
               <span className="status-dot" data-state={apiState} />
-              <span><small>API SERVICE</small><strong>{apiState === "online" ? "Connected" : apiState === "offline" ? "Offline" : "Checking…"}</strong></span>
+              <span><small>NEXUS API</small><strong>{apiState === "online" ? "Connected" : apiState === "offline" ? "Offline" : "Checking…"}</strong></span>
             </div>
             <div className="status-card">
               <span className="status-dot" data-state={databaseState === "connected" ? "online" : apiState === "offline" ? "offline" : "checking"} />
               <span><small>DATABASE</small><strong>{databaseState}</strong></span>
             </div>
+            <div className="status-card">
+              <span className="status-dot" data-state={ragState} />
+              <span><small>RAG ENGINE</small><strong>{ragState === "online" ? "Connected" : ragState === "offline" ? "Unavailable" : "Checking…"}</strong></span>
+            </div>
             <button className="refresh-button" onClick={() => void checkBackend()}>↻ Check services</button>
           </div>
 
           <div className="section-heading" id="assistant">
-            <div><span className="section-kicker">START HERE</span><h2>AI assistant</h2></div>
-            <span className="coming-badge">COMING IN NEXT MILESTONE</span>
+            <div><span className="section-kicker">KNOWLEDGE ENGINE</span><h2>Ask your documents</h2></div>
+            <span className="coming-badge">RAG INTEGRATION</span>
           </div>
 
           <div className="assistant-card">
             <div className="assistant-icon">✳</div>
             <div className="assistant-copy">
-              <h3>Your enterprise copilot is taking shape.</h3>
-              <p>Next: upload a knowledge document, index its contents, and ask questions with source citations. Tool integrations will be added behind explicit permissions and approval controls.</p>
-              <div className="capability-list"><span>01&nbsp; Document retrieval</span><span>02&nbsp; Source citations</span><span>03&nbsp; Controlled tools</span></div>
+              <h3>Grounded answers, not guesses.</h3>
+              <p>Nexus delegates retrieval, relevance grading, query rewriting, and citation validation to your existing Agentic RAG engine. The same RAG implementation remains independently runnable.</p>
+              <div className="capability-list"><span>01&nbsp; Existing RAG engine</span><span>02&nbsp; Page-level citations</span><span>03&nbsp; Server-side integration</span></div>
             </div>
           </div>
 
-          <div className="grid-two">
-            <article className="small-card" id="knowledge">
-              <div className="card-icon">▤</div><span className="section-kicker">KNOWLEDGE</span>
-              <h3>Knowledge base</h3><p>Document ingestion and semantic retrieval are the next implementation milestone.</p>
-              <span className="card-state">NOT IMPLEMENTED YET</span>
-            </article>
-            <article className="small-card" id="integrations">
-              <div className="card-icon">⌘</div><span className="section-kicker">CONNECTIVITY</span>
-              <h3>Business integrations</h3><p>Allowlisted read-only tools first, followed by human-approved actions and audit history.</p>
-              <span className="card-state">NOT IMPLEMENTED YET</span>
-            </article>
+          <div className="workspace-grid">
+            <section className="tool-card" id="knowledge">
+              <span className="section-kicker">KNOWLEDGE BASE</span>
+              <h3>Add a document</h3>
+              <p>Upload a PDF, DOCX, Markdown, or TXT file to the RAG engine. The current integration is a local, process-memory development index.</p>
+              <form onSubmit={uploadDocument} className="upload-form">
+                <input
+                  id="document-upload"
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md"
+                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                />
+                <button type="submit" disabled={!selectedFile || uploadLoading}>
+                  {uploadLoading ? "Indexing…" : "Upload and index"}
+                </button>
+              </form>
+              {uploadMessage && <p className="inline-message" role="status">{uploadMessage}</p>}
+              <span className="card-state">PDF · DOCX · TXT · MD · MAX 10 MiB</span>
+            </section>
+
+            <section className="tool-card" id="integrations">
+              <span className="section-kicker">CONTROL PLANE</span>
+              <h3>Enterprise governance</h3>
+              <p>The next layer will enforce identity, tool permissions, human approvals, and an audit trail before any state-changing integration is allowed.</p>
+              <span className="card-state">NEXT IMPLEMENTATION MILESTONE</span>
+            </section>
           </div>
-          <footer className="footer"><span>Nexus AI · v0.1.0</span><span>Built with a security-first approach</span></footer>
+
+          <section className="chat-panel">
+            <div className="panel-title">
+              <div><span className="section-kicker">AI ASSISTANT</span><h2>Ask a question</h2></div>
+              <span className="small-muted">Agentic RAG · grounded responses</span>
+            </div>
+            <form onSubmit={submitQuestion} className="question-form">
+              <input
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                maxLength={2000}
+                placeholder="When does the locker code expire?"
+                aria-label="Ask a question about your documents"
+              />
+              <button type="submit" disabled={!question.trim() || askLoading || ragState === "offline"}>
+                {askLoading ? "Thinking…" : "Ask Nexus"}
+              </button>
+            </form>
+            {askError && <p className="error-message" role="alert">{askError}</p>}
+            {answer && (
+              <div className="answer-panel">
+                <div className="answer-meta"><span>ANSWER</span><span>{answer.latency_ms} ms · {answer.engine}</span></div>
+                <p className="answer-text">{answer.answer}</p>
+                <div className="citation-list">
+                  <strong>Sources</strong>
+                  {answer.citations.length === 0 ? (
+                    <p className="small-muted">The engine abstained or returned no citations.</p>
+                  ) : answer.citations.map((citation) => (
+                    <article className="citation" key={`${citation.n}-${citation.source}-${citation.page}`}>
+                      <div><strong>[{citation.n}] {citation.source}</strong><span>Page {citation.page} · relevance {citation.score.toFixed(3)}</span></div>
+                      <p>{citation.text}</p>
+                    </article>
+                  ))}
+                </div>
+                <details className="trace-details">
+                  <summary>Agent execution trace</summary>
+                  <ol>{answer.trace.map((step, index) => <li key={index}>{step}</li>)}</ol>
+                </details>
+              </div>
+            )}
+            {!answer && !askError && <p className="empty-chat">Try the sample question above. The RAG API indexes the included incident, Kafka, and pantry sample documents on first start.</p>}
+          </section>
+          <footer className="footer"><span>Nexus AI · v0.3.0</span><span>RAG engine reused · governance layer in progress</span></footer>
         </div>
       </section>
     </main>

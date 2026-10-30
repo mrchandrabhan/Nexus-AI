@@ -50,3 +50,36 @@ h1 em{font-style:normal;color:var(--blue)}
 .card-state{font:9px "DM Mono",monospace;letter-spacing:.7px;color:#a17a33}
 .footer{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:20px;margin-top:60px;color:#9aa5ae;font:10px "DM Mono",monospace}
 @media(max-width:760px){.shell{grid-template-columns:1fr}.sidebar{min-height:auto;padding:17px 20px;display:block}.brand{margin:0 0 14px}.workspace-label,.nav-item{display:none}.sidebar-bottom{display:none}.topbar{height:58px}.content{padding-top:38px}.status-row{margin:25px 0 43px}.grid-two{grid-template-columns:1fr}.footer{flex-direction:column}.assistant-card{padding:22px;gap:14px}}
+
+
+.workspace-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;margin-top:18px}
+.tool-card,.chat-panel{background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:22px}
+.tool-card h3{font:700 17px Manrope,sans-serif;margin:8px 0}
+.tool-card p{font-size:12px;line-height:1.65;color:#74818c;margin:0 0 18px}
+.upload-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.upload-form input{min-width:0;max-width:100%;font:11px "DM Sans",sans-serif;color:#667581}
+.upload-form button,.question-form button{border:0;border-radius:7px;background:#315ce8;color:#fff;font-weight:700;font-size:12px;padding:11px 15px;cursor:pointer}
+.upload-form button:disabled,.question-form button:disabled{opacity:.45;cursor:not-allowed}
+.inline-message{font-size:12px!important;color:#197c68!important;margin:0 0 12px!important}
+.chat-panel{margin-top:18px;padding:24px}
+.panel-title{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:17px}
+.panel-title h2{font:700 21px Manrope,sans-serif;margin:7px 0 0}
+.small-muted{font-size:11px;color:#89949d}
+.question-form{display:flex;gap:10px}
+.question-form input{flex:1;min-width:0;border:1px solid var(--line);border-radius:7px;padding:12px 13px;font:13px "DM Sans",sans-serif;outline:none}
+.question-form input:focus{border-color:#839cf0;box-shadow:0 0 0 3px #315ce818}
+.error-message{font-size:12px;color:#b64343;background:#fff2f2;border-radius:6px;padding:10px 12px;margin:12px 0 0}
+.empty-chat{font-size:12px;color:#89949d;margin:17px 0 0}
+.answer-panel{border-top:1px solid var(--line);margin-top:20px;padding-top:17px}
+.answer-meta{display:flex;justify-content:space-between;gap:10px;font:10px "DM Mono",monospace;letter-spacing:.7px;color:#7c8993}
+.answer-text{font:500 15px/1.7 Manrope,sans-serif;white-space:pre-wrap;margin:12px 0 18px;color:#172b3a}
+.citation-list>strong{display:block;font:700 12px Manrope,sans-serif;margin-bottom:9px}
+.citation{border:1px solid var(--line);border-radius:7px;padding:12px;margin:8px 0}
+.citation>div{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.citation>div strong{font-size:11px;color:#315ce8}
+.citation>div span{font:10px "DM Mono",monospace;color:#8c98a2}
+.citation p{font-size:11px;line-height:1.6;color:#63717c;margin:8px 0 0}
+.trace-details{margin-top:13px;font-size:11px;color:#687782}
+.trace-details summary{cursor:pointer;font-weight:700}
+.trace-details ol{padding-left:20px;line-height:1.7}
+@media(max-width:760px){.workspace-grid{grid-template-columns:1fr}.question-form{flex-direction:column}.question-form button{align-self:flex-start}.panel-title{align-items:flex-start;flex-direction:column}}

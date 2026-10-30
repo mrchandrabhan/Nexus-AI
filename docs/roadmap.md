@@ -1,53 +1,45 @@
 # Nexus AI — Delivery Roadmap
 
-Checkboxes should only be marked after the feature exists and has been verified.
+Checkboxes are marked complete only when code exists and automated or end-to-end checks verify it.
 
-## Phase 0 — Project baseline
-- [x] Public repository created
-- [x] Project goals and scope documented
-- [x] Initial architecture and trust boundaries documented
-- [x] Next.js and FastAPI application scaffold
+## Phase 0 — Workspace baseline
+- [x] Project goals and architecture documented
+- [x] Next.js workspace shell
+- [x] FastAPI backend and service health endpoints
 - [x] Docker Compose development environment
-- [x] API liveness/readiness endpoints and smoke tests
-- [x] GitHub Actions test/build workflow
+- [x] GitHub Actions backend/frontend/Compose checks
 
-## Phase 1 — Working RAG assistant
-- [x] PostgreSQL document schema and versioned Alembic migration
-- [x] PDF, Markdown, and UTF-8 text upload endpoint
-- [x] PDF text extraction with page metadata
-- [x] Overlapping chunking with source character offsets
-- [x] Persistent document and chunk metadata
-- [x] Document list, detail, duplicate detection, and deletion endpoints
-- [ ] Embedding generation with a measured embedding model
-- [ ] pgvector storage and similarity index
-- [ ] Retrieval endpoint with workspace authorization filter
-- [ ] LLM response with verifiable source citations
-- [ ] 20–30 labeled retrieval and answer evaluation questions
-- [ ] Next.js upload and chat interface wired to the API
+## Phase 1 — Reuse existing RAG engine
+- [x] Add HTTP API adapter to the existing Agentic RAG project
+- [x] Expose RAG readiness, document upload, document list, and ask endpoints
+- [x] Add adapter tests with a fake engine (no model download in CI)
+- [x] Add a typed server-side Nexus RAG client
+- [x] Add Nexus assistant status, upload proxy, and ask endpoints
+- [x] Add workspace UI for uploads, questions, citations, and agent trace
+- [ ] Verify local end-to-end upload and question flow across both services
 
-## Phase 2 — Enterprise integration
-- [ ] Conversation persistence
-- [ ] Authentication and workspace membership
-- [ ] One read-only business tool with a strict schema
-- [ ] Tool authorization enforced server-side
-- [ ] Approval request model and approval UI
-- [ ] Audit log for tool proposals and approved actions
+## Phase 2 — Enterprise identity and access
+- [ ] Add user identity and workspace membership
+- [ ] Add RBAC roles and server-side authorization checks
+- [ ] Add workspace/document ownership and retrieval-scope filtering
+- [ ] Authenticate Nexus-to-RAG service calls
+- [ ] Add cross-workspace retrieval isolation tests
 
-## Phase 3 — Quality and operations
-- [ ] Prompt-injection and cross-workspace access tests
-- [ ] Structured logs and request IDs
-- [ ] OpenTelemetry tracing
-- [ ] Latency and token/cost tracking
-- [ ] Retrieval, citation, and answer-quality regression report
-- [ ] Deployment and operator runbook
+## Phase 3 — Controlled enterprise tools
+- [ ] Define tool registry and strict tool schemas
+- [ ] Add one read-only tool (service health or incident lookup)
+- [ ] Enforce tool authorization in server-side policy code
+- [ ] Add a state-changing tool proposal flow
+- [ ] Add expiring, one-use human approval tokens
+- [ ] Record approval and execution events in an audit log
 
-## Future enhancements
-- [ ] Additional model providers and routing policy
-- [ ] Hybrid lexical/vector retrieval and reranking
-- [ ] Durable multi-step agent workflows
-- [ ] Rate limiting and per-workspace budgets
-- [ ] Kubernetes and Terraform deployment after the app stabilizes
+## Phase 4 — Quality and operations
+- [ ] Add prompt-injection and unauthorized-action tests
+- [ ] Add structured logs and request IDs
+- [ ] Add OpenTelemetry tracing and request latency metrics
+- [ ] Add RAG regression and citation-validity gates to Nexus integration CI
+- [ ] Add operator runbook and deployment hardening
 
-## Definition of MVP complete
+## Product completion target
 
-A user can sign in, upload a document, ask a question, receive an answer with verifiable citations, and use one read-only business tool. Automated tests cover the main API and retrieval flow, and the app can be run through documented steps. Any write workflow remains behind explicit approval.
+A user can sign in, ask questions against knowledge they are authorized to access, inspect source citations, use a read-only enterprise tool, and propose a state-changing action that requires an authorized human approval. Every sensitive action is auditable.

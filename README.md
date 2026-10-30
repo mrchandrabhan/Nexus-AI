@@ -1,117 +1,135 @@
-# Nexus AI — Enterprise Intelligence & Automation Platform
+# Nexus AI — Enterprise AI Intelligence & Governance Platform
 
-> **Status: Document-ingestion API implemented and committed; local rebuild and end-to-end verification pending. Semantic retrieval and answer generation are the next milestones.**
+> **Status: Existing Agentic RAG engine integrated through an HTTP adapter; Nexus chat and document upload UI implemented. Identity, RBAC, policy enforcement, approvals, and audit logging are the next build stages.**
 
 [![CI](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml)
 
-Nexus AI is a portfolio project exploring how an enterprise AI assistant can move beyond chat and safely help people work with organizational knowledge and business systems. The first working slice accepts knowledge documents, extracts text, creates traceable chunks, and persists document metadata and content in PostgreSQL. Embeddings, semantic retrieval, and cited answer generation are being built next.
+Nexus AI is the enterprise workspace and governance layer for the separate [Agentic RAG Document Q&A](https://github.com/mrchandrabhan/agentic-rag-docqa) project. It reuses that existing system for document loading, chunking, embeddings, vector retrieval, LangGraph workflows, answer generation, abstention, and page-level citations. Nexus focuses on the capabilities around the knowledge engine: workspace UX, server-side integration, identity, authorization, controlled tools, human approvals, and audit history.
 
 **Repository:** https://github.com/mrchandrabhan/Nexus-AI  
 **Portfolio:** https://mrchandrabhan.github.io/
+
+## Product architecture
+
+```
+Nexus Next.js workspace
+  ├── document upload
+  ├── question and answer UI
+  └── source citations and agent trace
+           |
+           v
+Nexus FastAPI control plane
+  ├── server-side RAG service client
+  ├── future identity and workspace authorization
+  ├── future tool registry and policy engine
+  ├── future approval workflow
+  └── future audit events
+           |
+           v
+Existing Agentic RAG HTTP adapter
+  ├── page-aware document parsing and chunking
+  ├── MiniLM or deterministic hash embeddings
+  ├── FAISS / Chroma vector retrieval
+  ├── LangGraph retrieve-grade-rewrite-generate flow
+  └── citation validation and abstention
+```
+
+Nexus does not maintain a second embedding or retrieval pipeline. The existing RAG repository remains independently runnable and independently tested.
 
 ## Current implementation
 
 | Capability | Status |
 |---|---|
-| Project definition, architecture, and roadmap | Published |
-| Next.js workspace shell | Implemented |
-| FastAPI service, health, and readiness checks | Implemented |
-| PostgreSQL document schema and Alembic migration | Implemented |
-| PDF, Markdown, and UTF-8 text upload | Implemented |
-| PDF text extraction with page metadata | Implemented |
-| Overlapping text chunks with source offsets | Implemented |
-| Document listing, detail, duplicate detection, and deletion | Implemented |
-| Embedding generation and pgvector similarity search | Next milestone |
-| Grounded LLM answers with citations | Planned |
-| Authentication, tenant isolation, and RBAC | Planned |
-| Approved tools and audit workflow | Planned |
+| Next.js enterprise workspace shell | Implemented |
+| FastAPI control-plane API and health checks | Implemented |
+| Server-side HTTP client for the existing RAG engine | Implemented |
+| Nexus assistant question endpoint | Implemented |
+| Nexus document-upload proxy | Implemented |
+| Chat UI with grounded answer, citations, and agent trace | Implemented |
+| RAG service status in the workspace | Implemented |
+| RAG engine document parsing, embeddings, retrieval, and LangGraph | Reused from existing project |
+| Authentication and workspace membership | Next milestone |
+| RBAC and retrieval-scope enforcement | Next milestone |
+| Controlled tool registry and policy engine | Planned |
+| Human approval and audit workflow | Planned |
 
-The current upload API is a single-workspace development feature. Authentication and tenant-level authorization are not implemented yet; do not expose this development service to untrusted networks.
-
-## Architecture
-
-The current document flow is: user → Next.js workspace → FastAPI → document validation and extraction → overlapping chunks with page and offset metadata → PostgreSQL. The next milestone adds embeddings in pgvector, semantic retrieval, and source-cited model responses.
-
-See docs/architecture.md for trust boundaries and design decisions.
-
-## Technology
-
-| Area | Technology | Purpose |
-|---|---|---|
-| Web | Next.js, TypeScript | Workspace UI |
-| API | Python, FastAPI | Typed application API |
-| Data | PostgreSQL, SQLAlchemy | Document metadata and extracted chunks |
-| Migrations | Alembic | Versioned database schema |
-| File parsing | pypdf | Text extraction from PDFs |
-| Retrieval foundation | pgvector extension | Vector storage in the next milestone |
-| Tests | pytest, FastAPI TestClient | API and ingestion coverage |
-| Local environment | Docker Compose | Reproducible development |
-| Delivery | GitHub Actions | Test and build automation |
-
-## Document ingestion API
-
-The API accepts PDF, Markdown, and UTF-8 TXT files up to 10 MiB. It stores extracted text chunks and document metadata, not the original binary file. PDF chunks retain page numbers; all chunks retain character offsets within their source page.
-
-Open http://localhost:8000/docs and use these endpoints:
-
-- POST /api/v1/documents — upload a file using multipart form data.
-- GET /api/v1/documents — list uploaded document metadata.
-- GET /api/v1/documents/{document_id} — inspect a document and its extracted chunks.
-- DELETE /api/v1/documents/{document_id} — delete a document and its chunks.
-
-Exact duplicate files are rejected by SHA-256 digest. Unsupported file types, empty files, invalid PDFs, encrypted PDFs, and files above the upload limit receive explicit errors. Scanned PDFs are not OCR-processed.
+The current RAG adapter uses a process-local vector index. Sample documents are indexed at first initialization; uploads remain in memory and are cleared when that process restarts. This integration is for local development and demonstration, not a multi-tenant production deployment.
 
 ## Run locally
 
-Prerequisites: Docker Desktop with the Linux container engine running, and Git.
+### 1. Start the existing RAG API
 
-From the repository root, run:
+Open a PowerShell window in your existing `agentic-rag-docqa` clone:
 
-    docker compose up --build -d
-    docker compose ps
+```powershell
+git pull origin main
+pip install -r requirements.txt
+$env:EMBEDDER = "hash"
+uvicorn api:app --host 0.0.0.0 --port 7861
+```
+
+The hash embedder is deterministic and quick for local integration tests. For semantic retrieval, use `$env:EMBEDDER = "minilm"` and allow the MiniLM model to download. Without `ANTHROPIC_API_KEY` or `HF_TOKEN`, the existing RAG service uses its extractive answer backend.
+
+The adapter indexes the included incident, Kafka, and pantry sample documents when it initializes. Open http://localhost:7861/docs to inspect it.
+
+### 2. Start Nexus
+
+In a second PowerShell window:
+
+```powershell
+cd "$HOME\Projects\Portfolio\nexus-ai"
+git pull origin main
+docker compose up --build -d
+docker compose ps
+```
 
 Open:
-- Web application: http://localhost:3000
-- API documentation: http://localhost:8000/docs
-- API liveness: http://localhost:8000/health
-- API/database readiness: http://localhost:8000/ready
+- Nexus workspace: http://localhost:3000
+- Nexus API docs: http://localhost:8000/docs
+- Nexus API liveness: http://localhost:8000/health
+- Nexus database readiness: http://localhost:8000/ready
 
-PostgreSQL is exposed on host port 5433. The pgvector extension is enabled for the next retrieval milestone. Alembic applies the document schema automatically when the backend container starts.
+Docker Desktop connects the Nexus backend to the host's RAG API using `host.docker.internal:7861`.
 
-Run backend tests:
+### 3. Try the workflow
 
-    docker compose exec backend pytest -q
+1. Confirm the RAG service status shows Connected in Nexus.
+2. Upload a PDF, DOCX, TXT, or Markdown document from the Knowledge Base card.
+3. Ask a question about the sample or uploaded documents.
+4. Inspect the returned answer, source file, page number, and agent execution trace.
 
-Follow backend logs:
+The RAG service is a separate process and must remain running while using Nexus.
 
-    docker compose logs -f backend
+## API endpoints
 
-Stop the stack:
+Nexus exposes:
+- `GET /api/v1/assistant/status` — RAG engine status.
+- `POST /api/v1/assistant/documents` — proxy a document upload to the RAG engine.
+- `POST /api/v1/assistant/ask` — proxy a question and return the grounded answer and citations.
 
-    docker compose down
+The existing RAG adapter exposes:
+- `GET /health` and `GET /ready`
+- `GET /api/v1/documents`
+- `POST /api/v1/documents`
+- `POST /api/v1/ask`
 
-To remove the local database volume as well (destructive), use: docker compose down -v.
+## Security boundaries and next work
 
-The Compose file uses disposable development credentials for a local portfolio environment. Do not reuse them outside local development. Never commit real secrets.
+The current workspace has no authentication or tenant isolation. The RAG adapter is intended to run on a trusted local development machine; it is not safe to expose publicly. Before production-style deployment, implement user identity, server-side workspace authorization, retrieval scoping, request limits, service authentication, and secret management.
 
-## Security and reliability principles
+Next, Nexus will become the enforcement point for tool calls. The model may propose an action, but the server-side policy layer must check user permissions and tool schemas independently. State-changing operations must wait for a human approval and produce an audit event. Prompts are not an authorization mechanism.
 
-- Treat uploaded documents and retrieved content as untrusted input.
-- Enforce authorization in the API and tool layer, not only in prompts.
-- Use allowlisted tools with validated schemas and least-privilege credentials.
-- Keep read operations separate from write operations.
-- Require an explicit human approval step before write actions.
-- Avoid logging secrets or unnecessary document contents.
-- Add timeouts, request limits, and clear failure responses.
-- Evaluate groundedness and citation correctness; do not assume fluent output is correct.
+## Engineering roadmap
 
-## Development roadmap
+See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md). Only implemented and verified functionality is marked complete.
 
-See docs/roadmap.md. Planned capabilities are not described as complete until implemented and tested.
+## Stop services
 
-## Portfolio context
+```powershell
+docker compose down
+```
 
-This project complements Agentic RAG Document Q&A. The earlier project focuses on document question answering and retrieval evaluation; Nexus AI is intended to explore enterprise ingestion, authorization boundaries, enterprise application integrations, and human-approved workflows.
+Stop the RAG API with Ctrl+C in its terminal. Do not use `docker compose down -v` unless you intentionally want to delete the local PostgreSQL volume.
 
 ## License
 

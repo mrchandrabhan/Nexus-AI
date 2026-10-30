@@ -6,15 +6,17 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import engine
+from app.routers.assistant import router as assistant_router
 from app.routers.documents import router as documents_router
 
 app = FastAPI(
     title="Nexus AI API",
     description=(
-        "Enterprise knowledge workspace API. The current slice supports document "
-        "ingestion and extraction; semantic retrieval and answer generation are next."
+        "Enterprise AI workspace API. Nexus delegates knowledge retrieval and "
+        "citation generation to the existing Agentic RAG service, and exposes "
+        "enterprise workspace endpoints."
     ),
-    version="0.2.0",
+    version="0.3.0",
 )
 
 origins = [
@@ -31,11 +33,12 @@ app.add_middleware(
 )
 
 app.include_router(documents_router)
+app.include_router(assistant_router)
 
 
 @app.get("/", tags=["system"])
 def root() -> dict[str, str]:
-    return {"service": "nexus-ai-api", "version": "0.2.0", "docs": "/docs"}
+    return {"service": "nexus-ai-api", "version": "0.3.0", "docs": "/docs"}
 
 
 @app.get("/health", tags=["system"])

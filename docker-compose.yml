@@ -21,6 +21,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://nexus:nexus_dev_password@db:5432/nexus
       CORS_ORIGINS: http://localhost:3000
+      RAG_API_BASE_URL: http://host.docker.internal:7861
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     volumes:
