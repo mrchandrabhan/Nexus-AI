@@ -1,6 +1,8 @@
 # Nexus AI — Enterprise Intelligence & Automation Platform
 
-> **Status: In progress — architecture and delivery plan published; implementation is underway.**
+> **Status: Day 1 scaffold committed; GitHub CI passing; local Docker verification pending.**
+
+[![CI](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml)
 
 Nexus AI is a portfolio project exploring how an enterprise AI assistant can move beyond chat and safely help people work with organizational knowledge and business systems. The intended MVP combines retrieval-augmented generation (RAG), citations, controlled tool calling, and human-approved actions.
 
