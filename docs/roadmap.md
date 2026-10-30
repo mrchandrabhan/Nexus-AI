@@ -6,7 +6,9 @@ This roadmap separates the first demonstrable vertical slice from future product
 - [x] Public repository created
 - [x] Project goals and scope documented
 - [x] Initial architecture and trust boundaries documented
-- [ ] Add application scaffold
+- [x] Add application scaffold
+- [x] Add Docker Compose for local development
+- [x] Add API liveness/readiness endpoints and backend smoke tests
 - [ ] Add linting, formatting, and CI
 
 ## Phase 1 — Working RAG assistant
