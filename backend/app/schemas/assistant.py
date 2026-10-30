@@ -36,10 +36,33 @@ class RAGDocumentUpload(BaseModel):
     files: int
     pages: int
     chunks: int
+    characters: int | None = None
 
 
 class AssistantStatus(BaseModel):
     status: str
     engine: str
     embedding_model: str
+    answer_model: str
+    retrieval: str
     indexed_documents: int
+    indexed_chunks: int
+
+
+class AssistantRetrieveRequest(AssistantAskRequest):
+    limit: int = Field(default=8, ge=1, le=20)
+
+
+class RetrievalResult(BaseModel):
+    rank: int
+    source: str
+    page: int
+    score: float
+    text: str
+
+
+class AssistantRetrievalDebug(BaseModel):
+    question: str
+    embedding_model: str
+    answer_model: str
+    results: list[RetrievalResult]

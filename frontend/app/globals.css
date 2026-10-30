@@ -83,3 +83,12 @@ h1 em{font-style:normal;color:var(--blue)}
 .trace-details summary{cursor:pointer;font-weight:700}
 .trace-details ol{padding-left:20px;line-height:1.7}
 @media(max-width:760px){.workspace-grid{grid-template-columns:1fr}.question-form{flex-direction:column}.question-form button{align-self:flex-start}.panel-title{align-items:flex-start;flex-direction:column}}
+
+
+.engine-info{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:-48px 0 48px;font:10px "DM Mono",monospace;color:#71808b}
+.engine-info strong{color:#315ce8;font-weight:500}
+.engine-info-warning{border-color:#ead6a8;background:#fffaf0}
+.engine-info-warning p{width:100%;font:11px/1.6 "DM Sans",sans-serif;color:#8a682b;margin:0}
+.retrieval-debug{border:1px solid var(--line);border-radius:7px;padding:10px 12px;margin-top:12px}
+.retrieval-debug summary{margin-bottom:8px}
+@media(max-width:760px){.engine-info{margin:-25px 0 36px}}

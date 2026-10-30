@@ -19,6 +19,19 @@ type AssistantAnswer = {
   latency_ms: number;
   engine: string;
 };
+type RAGStatus = {
+  embedding_model: string;
+  answer_model: string;
+  retrieval: string;
+  indexed_documents: number;
+  indexed_chunks: number;
+};
+type RetrievalDebug = {
+  question: string;
+  embedding_model: string;
+  answer_model: string;
+  results: Array<{rank:number;source:string;page:number;score:number;text:string}>;
+};
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -26,8 +39,10 @@ export default function Home() {
   const [apiState, setApiState] = useState<ServiceState>("checking");
   const [databaseState, setDatabaseState] = useState("Checking");
   const [ragState, setRagState] = useState<ServiceState>("checking");
+  const [ragDetails, setRagDetails] = useState<RAGStatus | null>(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<AssistantAnswer | null>(null);
+  const [retrievalDebug, setRetrievalDebug] = useState<RetrievalDebug | null>(null);
   const [askLoading, setAskLoading] = useState(false);
   const [askError, setAskError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -51,8 +66,11 @@ export default function Home() {
     try {
       const response = await fetch(`${API_BASE}/api/v1/assistant/status`, { cache: "no-store" });
       if (!response.ok) throw new Error("RAG service unavailable");
+      const status = await response.json() as RAGStatus;
+      setRagDetails(status);
       setRagState("online");
     } catch {
+      setRagDetails(null);
       setRagState("offline");
     }
   }
@@ -63,6 +81,7 @@ export default function Home() {
     setAskLoading(true);
     setAskError("");
     setAnswer(null);
+    setRetrievalDebug(null);
     try {
       const response = await fetch(`${API_BASE}/api/v1/assistant/ask`, {
         method: "POST",
@@ -72,6 +91,16 @@ export default function Home() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail ?? "The assistant could not answer.");
       setAnswer(body as AssistantAnswer);
+      try {
+        const debugResponse = await fetch(`${API_BASE}/api/v1/assistant/retrieve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: question.trim(), limit: 6 })
+        });
+        if (debugResponse.ok) setRetrievalDebug(await debugResponse.json() as RetrievalDebug);
+      } catch {
+        // Answer is still useful if the optional diagnostics request fails.
+      }
     } catch (error) {
       setAskError(error instanceof Error ? error.message : "Unexpected request error.");
     } finally {
@@ -153,6 +182,17 @@ export default function Home() {
             </div>
             <button className="refresh-button" onClick={() => void checkBackend()}>↻ Check services</button>
           </div>
+          {ragDetails && (
+            <div className={`engine-info ${ragDetails.embedding_model.startsWith("hash") || ragDetails.answer_model === "extractive" ? "engine-info-warning" : ""}`}>
+              <strong>Retrieval configuration</strong>
+              <span>Embedding: {ragDetails.embedding_model}</span>
+              <span>Answer model: {ragDetails.answer_model}</span>
+              <span>Indexed: {ragDetails.indexed_documents} documents · {ragDetails.indexed_chunks} chunks</span>
+              {(ragDetails.embedding_model.startsWith("hash") || ragDetails.answer_model === "extractive") && (
+                <p>Development fallback active. Use MiniLM embeddings for semantic search. The extractive answer mode needs close wording overlap; configure an LLM provider for better paraphrase and synthesis.</p>
+              )}
+            </div>
+          )}
 
           <div className="section-heading" id="assistant">
             <div><span className="section-kicker">KNOWLEDGE ENGINE</span><h2>Ask your documents</h2></div>
@@ -229,6 +269,17 @@ export default function Home() {
                     </article>
                   ))}
                 </div>
+                {retrievalDebug && (
+                  <details className="trace-details retrieval-debug">
+                    <summary>Retrieved passages · {retrievalDebug.results.length} result(s)</summary>
+                    {retrievalDebug.results.map((result) => (
+                      <article className="citation" key={`${result.rank}-${result.source}-${result.page}`}>
+                        <div><strong>#{result.rank} {result.source}</strong><span>Page {result.page} · score {result.score.toFixed(4)}</span></div>
+                        <p>{result.text}</p>
+                      </article>
+                    ))}
+                  </details>
+                )}
                 <details className="trace-details">
                   <summary>Agent execution trace</summary>
                   <ol>{answer.trace.map((step, index) => <li key={index}>{step}</li>)}</ol>

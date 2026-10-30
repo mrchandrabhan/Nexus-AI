@@ -64,7 +64,7 @@ Open a PowerShell window in your existing `agentic-rag-docqa` clone:
 ```powershell
 git pull origin main
 pip install -r requirements.txt
-$env:EMBEDDER = "hash"
+$env:EMBEDDER = "minilm"
 uvicorn api:app --host 0.0.0.0 --port 7861
 ```
 
@@ -106,6 +106,7 @@ Nexus exposes:
 - `GET /api/v1/assistant/status` — RAG engine status.
 - `POST /api/v1/assistant/documents` — proxy a document upload to the RAG engine.
 - `POST /api/v1/assistant/ask` — proxy a question and return the grounded answer and citations.
+- `POST /api/v1/assistant/retrieve` — inspect top retrieved passages when debugging a question.
 
 The existing RAG adapter exposes:
 - `GET /health` and `GET /ready`

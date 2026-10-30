@@ -10,8 +10,11 @@ class FakeRAGClient:
         return {
             "status": "ready",
             "engine": "agentic-rag-docqa",
-            "embedding_model": "hash-1024",
+            "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+            "answer_model": "extractive",
+            "retrieval": "hybrid-vector-and-lexical",
             "indexed_documents": 3,
+            "indexed_chunks": 18,
         }
 
     async def ask(self, question):
@@ -32,6 +35,22 @@ class FakeRAGClient:
             "engine": "agentic-rag-docqa",
         }
 
+    async def retrieve(self, question, limit=8):
+        return {
+            "question": question,
+            "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+            "answer_model": "extractive",
+            "results": [
+                {
+                    "rank": 1,
+                    "source": "resume.pdf",
+                    "page": 1,
+                    "score": 0.031,
+                    "text": "Cloud infrastructure with Azure, Terraform and Kubernetes.",
+                }
+            ][:limit],
+        }
+
     async def upload(self, filename, content, content_type):
         return {
             "filename": filename,
@@ -39,6 +58,7 @@ class FakeRAGClient:
             "files": 1,
             "pages": 1,
             "chunks": 2,
+            "characters": 150,
         }
 
 
@@ -75,9 +95,22 @@ def test_assistant_upload_proxies_file_to_rag_engine(client):
     assert response.status_code == 200
     assert response.json()["filename"] == "new-runbook.md"
     assert response.json()["chunks"] == 2
+    assert response.json()["characters"] == 150
 
 
-def test_assistant_status_returns_engine_information(client):
+def test_assistant_status_includes_models_and_index_counts(client):
     response = client.get("/api/v1/assistant/status")
     assert response.status_code == 200
-    assert response.json()["embedding_model"] == "hash-1024"
+    assert response.json()["embedding_model"] == "sentence-transformers/all-MiniLM-L6-v2"
+    assert response.json()["indexed_chunks"] == 18
+
+
+def test_assistant_retrieval_debug_returns_top_source_passages(client):
+    response = client.post(
+        "/api/v1/assistant/retrieve",
+        json={"question": "Which cloud technologies are on my resume?", "limit": 4},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"][0]["source"] == "resume.pdf"
+    assert body["results"][0]["page"] == 1

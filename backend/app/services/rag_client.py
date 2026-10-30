@@ -59,6 +59,12 @@ class RAGClient:
             "POST", "/api/v1/ask", json={"question": question}
         )
 
+    async def retrieve(self, question: str, limit: int = 8) -> dict[str, Any]:
+        return await self._request(
+            "POST", "/api/v1/retrieve",
+            json={"question": question, "limit": limit},
+        )
+
     async def upload(self, filename: str, content: bytes, content_type: str) -> dict[str, Any]:
         return await self._request(
             "POST",
