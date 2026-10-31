@@ -183,13 +183,16 @@ export default function Home() {
             <button className="refresh-button" onClick={() => void checkBackend()}>↻ Check services</button>
           </div>
           {ragDetails && (
-            <div className={`engine-info ${ragDetails.embedding_model.startsWith("hash") || ragDetails.answer_model === "extractive" ? "engine-info-warning" : ""}`}>
+            <div className={`engine-info ${ragDetails.embedding_model.startsWith("hash") ? "engine-info-warning" : ""}`}>
               <strong>Retrieval configuration</strong>
-              <span>Embedding: {ragDetails.embedding_model}</span>
-              <span>Answer model: {ragDetails.answer_model}</span>
+              <span>Embeddings: {ragDetails.embedding_model}</span>
+              <span>Answer engine: local {ragDetails.answer_model}</span>
               <span>Indexed: {ragDetails.indexed_documents} documents · {ragDetails.indexed_chunks} chunks</span>
-              {(ragDetails.embedding_model.startsWith("hash") || ragDetails.answer_model === "extractive") && (
-                <p>Development fallback active. Use MiniLM embeddings for semantic search. The extractive answer mode needs close wording overlap; configure an LLM provider for better paraphrase and synthesis.</p>
+              {ragDetails.embedding_model.startsWith("hash") && (
+                <p>Hash embeddings are intended for smoke tests. Use MiniLM embeddings for semantic search.</p>
+              )}
+              {ragDetails.answer_model === "extractive" && (
+                <p>Answers are built locally from relevant document sentences with source citations. No hosted language model or external inference API is called.</p>
               )}
             </div>
           )}

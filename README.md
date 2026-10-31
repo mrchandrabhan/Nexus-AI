@@ -68,7 +68,7 @@ $env:EMBEDDER = "minilm"
 uvicorn api:app --host 0.0.0.0 --port 7861
 ```
 
-The hash embedder is deterministic and quick for local integration tests. For semantic retrieval, use `$env:EMBEDDER = "minilm"` and allow the MiniLM model to download. Without `ANTHROPIC_API_KEY` or `HF_TOKEN`, the existing RAG service uses its extractive answer backend.
+The hash embedder is deterministic and quick for local integration tests. For semantic retrieval, use `$env:EMBEDDER = "minilm"` and allow the MiniLM model to download. Answer generation stays local: the RAG service selects relevant sentences from retrieved passages and includes source citations. No hosted language-model API or API key is used.
 
 The adapter indexes the included incident, Kafka, and pantry sample documents when it initializes. Open http://localhost:7861/docs to inspect it.
 
