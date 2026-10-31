@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: nexus_dev_password
       POSTGRES_DB: nexus
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - nexus_db_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
@@ -16,20 +16,47 @@ services:
       timeout: 3s
       retries: 15
 
+  rag:
+    build:
+      context: ../agentic-rag-docqa
+      dockerfile: Dockerfile
+    command: ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "7861"]
+    environment:
+      EMBEDDER: minilm
+      RAG_UPLOAD_DIR: /data/uploads
+      MODEL_CACHE: /data/models
+      RAG_QUERY_LOG: /data/logs/nexus-queries.jsonl
+    ports:
+      - "127.0.0.1:7861:7861"
+    volumes:
+      - rag_uploads:/data/uploads
+      - rag_models:/data/models
+      - rag_logs:/data/logs
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7861/ready', timeout=5).read()"
+      interval: 15s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
   backend:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg://nexus:nexus_dev_password@db:5432/nexus
       CORS_ORIGINS: http://localhost:3000
-      RAG_API_BASE_URL: http://host.docker.internal:7861
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      RAG_API_BASE_URL: http://rag:7861
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./backend:/app
     depends_on:
       db:
+        condition: service_healthy
+      rag:
         condition: service_healthy
 
   frontend:
@@ -40,7 +67,7 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -49,3 +76,6 @@ services:
 
 volumes:
   nexus_db_data:
+  rag_uploads:
+  rag_models:
+  rag_logs:

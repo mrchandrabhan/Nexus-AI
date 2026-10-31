@@ -13,6 +13,7 @@ class FakeRAGClient:
             "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
             "answer_model": "extractive",
             "retrieval": "hybrid-vector-and-lexical",
+            "upload_persistence": "disk-backed; reindexed on startup",
             "indexed_documents": 3,
             "indexed_chunks": 18,
         }
@@ -103,6 +104,7 @@ def test_assistant_status_includes_models_and_index_counts(client):
     assert response.status_code == 200
     assert response.json()["embedding_model"] == "sentence-transformers/all-MiniLM-L6-v2"
     assert response.json()["indexed_chunks"] == 18
+    assert "reindexed on startup" in response.json()["upload_persistence"]
 
 
 def test_assistant_retrieval_debug_returns_top_source_passages(client):

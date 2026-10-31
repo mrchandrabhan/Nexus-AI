@@ -1,10 +1,10 @@
 # Nexus AI — Enterprise AI Intelligence & Governance Platform
 
-> **Status: Existing Agentic RAG engine integrated through an HTTP adapter; Nexus chat and document upload UI implemented. Identity, RBAC, policy enforcement, approvals, and audit logging are the next build stages.**
+> **Status: Local-first MVP. Docker Compose runs the Next.js workspace, FastAPI control plane, PostgreSQL, and the shared Agentic RAG service. Document uploads persist in a named volume and are re-indexed after restarts. Identity, RBAC, policy enforcement, approvals, and audit logging remain future milestones.**
 
 [![CI](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/mrchandrabhan/Nexus-AI/actions/workflows/ci.yml)
 
-Nexus AI is the enterprise workspace and governance layer for the separate [Agentic RAG Document Q&A](https://github.com/mrchandrabhan/agentic-rag-docqa) project. It reuses that existing system for document loading, chunking, embeddings, vector retrieval, LangGraph workflows, answer generation, abstention, and page-level citations. Nexus focuses on the capabilities around the knowledge engine: workspace UX, server-side integration, identity, authorization, controlled tools, human approvals, and audit history.
+Nexus AI is the enterprise workspace and governance layer for the separate [Agentic RAG Document Q&A](https://github.com/mrchandrabhan/agentic-rag-docqa) project. It reuses that existing system for document loading, chunking, local MiniLM embeddings, hybrid vector/lexical retrieval, LangGraph orchestration, deterministic extractive answers, abstention, and page-level citations. No hosted LLM API is required. Nexus focuses on the capabilities around the knowledge engine: workspace UX, server-side integration, identity, authorization, controlled tools, human approvals, and audit history.
 
 **Repository:** https://github.com/mrchandrabhan/Nexus-AI  
 **Portfolio:** https://mrchandrabhan.github.io/
@@ -31,7 +31,8 @@ Existing Agentic RAG HTTP adapter
   ├── MiniLM or deterministic hash embeddings
   ├── FAISS / Chroma vector retrieval
   ├── LangGraph retrieve-grade-rewrite-generate flow
-  └── citation validation and abstention
+  ├── citation validation and abstention
+  └── disk-backed uploads re-indexed at startup
 ```
 
 Nexus does not maintain a second embedding or retrieval pipeline. The existing RAG repository remains independently runnable and independently tested.
@@ -47,58 +48,57 @@ Nexus does not maintain a second embedding or retrieval pipeline. The existing R
 | Nexus document-upload proxy | Implemented |
 | Chat UI with grounded answer, citations, and agent trace | Implemented |
 | RAG service status in the workspace | Implemented |
-| RAG engine document parsing, embeddings, retrieval, and LangGraph | Reused from existing project |
+| Docker Compose-managed RAG API with health-gated startup | Implemented |
+| Persistent upload and local model-cache volumes | Implemented |
+| Local extractive answers with source citations | Reused from existing project |
+| RAG engine document parsing, embeddings, hybrid retrieval, and LangGraph | Reused from existing project |
 | Authentication and workspace membership | Next milestone |
 | RBAC and retrieval-scope enforcement | Next milestone |
 | Controlled tool registry and policy engine | Planned |
 | Human approval and audit workflow | Planned |
 
-The current RAG adapter uses a process-local vector index. Sample documents are indexed at first initialization; uploads remain in memory and are cleared when that process restarts. This integration is for local development and demonstration, not a multi-tenant production deployment.
+The vector index is rebuilt in memory at RAG service startup. Uploaded source files, model files, and query logs are stored in Docker named volumes; saved uploads are re-indexed after a restart. The stack binds its development ports to loopback. This remains a local demonstration, not a multi-tenant production deployment.
 
 ## Run locally
 
-### 1. Start the existing RAG API
+Clone the two repositories side by side so the Compose build can use the shared RAG engine:
 
-Open a PowerShell window in your existing `agentic-rag-docqa` clone:
-
-```powershell
-git pull origin main
-pip install -r requirements.txt
-$env:EMBEDDER = "minilm"
-uvicorn api:app --host 0.0.0.0 --port 7861
+```text
+Projects/Portfolio/
+  nexus-ai/
+  agentic-rag-docqa/
 ```
 
-The hash embedder is deterministic and quick for local integration tests. For semantic retrieval, use `$env:EMBEDDER = "minilm"` and allow the MiniLM model to download. Answer generation stays local: the RAG service selects relevant sentences from retrieved passages and includes source citations. No hosted language-model API or API key is used.
-
-The adapter indexes the included incident, Kafka, and pantry sample documents when it initializes. Open http://localhost:7861/docs to inspect it.
-
-### 2. Start Nexus
-
-In a second PowerShell window:
+From PowerShell, update both repositories and start the complete stack:
 
 ```powershell
+cd "$HOME\Projects\Portfolio\agentic-rag-docqa"
+git pull origin main
+
 cd "$HOME\Projects\Portfolio\nexus-ai"
 git pull origin main
 docker compose up --build -d
 docker compose ps
 ```
 
+Docker Compose starts PostgreSQL, the local MiniLM-backed RAG API, the Nexus FastAPI backend, and the Next.js workspace. The first RAG startup downloads MiniLM into a named model-cache volume; later startups reuse the cached model.
+
 Open:
 - Nexus workspace: http://localhost:3000
 - Nexus API docs: http://localhost:8000/docs
-- Nexus API liveness: http://localhost:8000/health
-- Nexus database readiness: http://localhost:8000/ready
+- Nexus API readiness: http://localhost:8000/ready
+- RAG API docs: http://localhost:7861/docs
+- RAG readiness: http://localhost:7861/ready
 
-Docker Desktop connects the Nexus backend to the host's RAG API using `host.docker.internal:7861`.
+The RAG API binds to `127.0.0.1` on the host and is called by the backend over the private Compose network. Uploaded source files are kept in the `rag_uploads` volume and re-indexed after a container restart. The vector index itself is rebuilt in memory. No external LLM API key or hosted inference service is used.
 
-### 3. Try the workflow
+### Try the workflow
 
-1. Confirm the RAG service status shows Connected in Nexus.
-2. Upload a PDF, DOCX, TXT, or Markdown document from the Knowledge Base card.
+1. Confirm Nexus API, database, and RAG service show Connected.
+2. Upload a PDF, DOCX, TXT, or Markdown file from the Knowledge Base card.
 3. Ask a question about the sample or uploaded documents.
-4. Inspect the returned answer, source file, page number, and agent execution trace.
-
-The RAG service is a separate process and must remain running while using Nexus.
+4. Inspect the answer, source file, page number, retrieved passages, and agent execution trace.
+5. Restart the RAG container with `docker compose restart rag`; the uploaded source should still be indexed when the service becomes healthy again.
 
 ## API endpoints
 
@@ -130,7 +130,7 @@ See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architect
 docker compose down
 ```
 
-Stop the RAG API with Ctrl+C in its terminal. Do not use `docker compose down -v` unless you intentionally want to delete the local PostgreSQL volume.
+This stops the services but preserves database, uploaded documents, model cache, and query-log volumes. Use `docker compose down -v` only when you intentionally want to delete all local persisted data.
 
 ## License
 

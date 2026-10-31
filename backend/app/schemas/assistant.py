@@ -45,6 +45,7 @@ class AssistantStatus(BaseModel):
     embedding_model: str
     answer_model: str
     retrieval: str
+    upload_persistence: str
     indexed_documents: int
     indexed_chunks: int
 

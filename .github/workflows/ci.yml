@@ -14,9 +14,18 @@ jobs:
     name: Docker Compose configuration
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out Nexus repository
         uses: actions/checkout@v4
+        with:
+          path: nexus-ai
+      - name: Check out the shared Agentic RAG engine
+        uses: actions/checkout@v4
+        with:
+          repository: mrchandrabhan/agentic-rag-docqa
+          path: agentic-rag-docqa
+          persist-credentials: false
       - name: Validate Compose configuration
+        working-directory: nexus-ai
         run: docker compose config --quiet
 
   backend-tests:

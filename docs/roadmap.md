@@ -15,7 +15,9 @@ Checkboxes are marked complete only when code exists and automated or end-to-end
 - [x] Add adapter tests with a fake engine (no model download in CI)
 - [x] Add a typed server-side Nexus RAG client
 - [x] Add Nexus assistant status, upload proxy, and ask endpoints
-- [x] Add workspace UI for uploads, questions, citations, and agent trace
+- [x] Add workspace UI for uploads, questions, citations, retrieval diagnostics, and agent trace
+- [x] Run the RAG API as a health-gated Docker Compose service
+- [x] Persist uploaded source files and re-index them on service startup
 - [ ] Verify local end-to-end upload and question flow across both services
 
 ## Phase 2 — Enterprise identity and access

@@ -23,6 +23,7 @@ type RAGStatus = {
   embedding_model: string;
   answer_model: string;
   retrieval: string;
+  upload_persistence: string;
   indexed_documents: number;
   indexed_chunks: number;
 };
@@ -126,7 +127,7 @@ export default function Home() {
       setSelectedFile(null);
       const input = document.getElementById("document-upload") as HTMLInputElement | null;
       if (input) input.value = "";
-      setRagState("online");
+      await checkBackend();
     } catch (error) {
       setUploadMessage(error instanceof Error ? error.message : "Unexpected upload error.");
     } finally {
@@ -187,6 +188,7 @@ export default function Home() {
               <strong>Retrieval configuration</strong>
               <span>Embeddings: {ragDetails.embedding_model}</span>
               <span>Answer engine: local {ragDetails.answer_model}</span>
+              <span>Uploads: {ragDetails.upload_persistence}</span>
               <span>Indexed: {ragDetails.indexed_documents} documents · {ragDetails.indexed_chunks} chunks</span>
               {ragDetails.embedding_model.startsWith("hash") && (
                 <p>Hash embeddings are intended for smoke tests. Use MiniLM embeddings for semantic search.</p>
@@ -206,7 +208,7 @@ export default function Home() {
             <div className="assistant-icon">✳</div>
             <div className="assistant-copy">
               <h3>Grounded answers, not guesses.</h3>
-              <p>Nexus delegates retrieval, relevance grading, query rewriting, and citation validation to your existing Agentic RAG engine. The same RAG implementation remains independently runnable.</p>
+              <p>Nexus delegates retrieval, relevance grading, query rewriting, local extractive answering, and citation validation to the shared Agentic RAG engine. No hosted LLM API is required.</p>
               <div className="capability-list"><span>01&nbsp; Existing RAG engine</span><span>02&nbsp; Page-level citations</span><span>03&nbsp; Server-side integration</span></div>
             </div>
           </div>
@@ -215,7 +217,7 @@ export default function Home() {
             <section className="tool-card" id="knowledge">
               <span className="section-kicker">KNOWLEDGE BASE</span>
               <h3>Add a document</h3>
-              <p>Upload a PDF, DOCX, Markdown, or TXT file to the RAG engine. The current integration is a local, process-memory development index.</p>
+              <p>Upload a PDF, DOCX, Markdown, or TXT file to the local RAG engine. Source files persist in a Docker volume and are re-indexed after a service restart. This development workspace is not tenant-isolated.</p>
               <form onSubmit={uploadDocument} className="upload-form">
                 <input
                   id="document-upload"
@@ -291,7 +293,7 @@ export default function Home() {
             )}
             {!answer && !askError && <p className="empty-chat">Try the sample question above. The RAG API indexes the included incident, Kafka, and pantry sample documents on first start.</p>}
           </section>
-          <footer className="footer"><span>Nexus AI · v0.3.0</span><span>RAG engine reused · governance layer in progress</span></footer>
+          <footer className="footer"><span>Nexus AI · local MVP</span><span>Local-only answers · enterprise governance in progress</span></footer>
         </div>
       </section>
     </main>

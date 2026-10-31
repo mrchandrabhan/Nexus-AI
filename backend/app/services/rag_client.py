@@ -17,7 +17,7 @@ class RAGClient:
 
     def __init__(self, base_url: str | None = None, timeout: float = 45.0) -> None:
         self.base_url = (base_url or os.getenv(
-            "RAG_API_BASE_URL", "http://host.docker.internal:7861"
+            "RAG_API_BASE_URL", "http://localhost:7861"
         )).rstrip("/")
         self.timeout = timeout
 
@@ -32,7 +32,7 @@ class RAGClient:
                 )
         except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as exc:
             raise RAGServiceUnavailable(
-                "The RAG service is unavailable. Start the agentic-rag-docqa API."
+                "The RAG service is unavailable. Check the Compose-managed rag service with docker compose ps."
             ) from exc
         except httpx.HTTPError as exc:
             raise RAGServiceUnavailable("Could not communicate with the RAG service.") from exc

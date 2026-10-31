@@ -28,7 +28,7 @@ Nexus AI is the enterprise workspace and governance/control plane. The existing 
 - Accepts document uploads and indexes them through the existing page-aware loaders, chunker, embedding model, and FAISS store.
 - Uses the existing LangGraph retrieve-grade-rewrite-generate flow and citation validation.
 - Supports the existing MiniLM semantic embedder and deterministic hash embedder for local/offline development.
-- Keeps its vector index in process memory; sample documents are reloaded and additional uploads are cleared after a restart.
+- Rebuilds its vector index in process memory at startup; uploaded source files are persisted in a mounted directory and re-indexed after a restart.
 
 ## Request flows
 
@@ -45,14 +45,14 @@ Nexus AI is the enterprise workspace and governance/control plane. The existing 
 1. The browser sends a multipart file to Nexus.
 2. Nexus enforces its 10 MiB request limit.
 3. Nexus forwards the file to the RAG service.
-4. The RAG service validates type and size, writes to a temporary directory, and indexes the content through the existing RAG pipeline.
+4. The RAG service validates type and size, writes the source file to the persistent upload volume, and indexes it through the existing RAG pipeline.
 5. The response includes file/page/chunk counts.
 
 ## Current limitations and trust boundaries
 
 - No user authentication, workspace identity, or tenant isolation exists yet.
-- The local RAG API currently has no service token; keep it on a trusted development machine.
-- The vector index and extra document uploads are process-local, not durable.
+- The local RAG API currently has no service token; Compose binds its host port to loopback and keeps backend-to-RAG traffic on the private Compose network.
+- The vector index is process-local and rebuilt at startup; uploaded source files and model cache are durable Docker volumes.
 - Nexus currently proxies question and upload requests; it does not claim that documents are access-controlled.
 - All retrieved documents must be treated as untrusted input.
 - The current UI must not be exposed as an enterprise multi-tenant service.
