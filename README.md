@@ -134,4 +134,4 @@ This stops the services but preserves database, uploaded documents, model cache,
 
 ## License
 
-No license has been selected yet. Until one is added, normal copyright restrictions apply; please do not assume the code is reusable under an open-source license.
+Released under the [MIT License](LICENSE).
